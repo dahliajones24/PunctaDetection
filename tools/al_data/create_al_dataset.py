@@ -1,15 +1,14 @@
 import os
 import json
 import numpy as np
-
 import argparse
 
 parser = argparse.ArgumentParser(description='AL Dataset')
-parser.add_argument('oracle-path', type=str, required=True, help='dataset root')
-parser.add_argument('out-root', type=str, required=True, help='output json path')
-parser.add_argument('n-diff', type=int, required=True, help='number of different initial set')
-parser.add_argument('n-labeled', type=int, required=True, help='n labeled images')
-parser.add_argument('dataset', choices=['coco', 'voc'], required=True, help='dataset type')
+parser.add_argument('oracle_path', type=str, help='dataset root')
+parser.add_argument('out_root', type=str, help='output json path')
+parser.add_argument('n_diff', type=int, help='number of different initial sets')
+parser.add_argument('n_labeled', type=int, help='number of labeled images')
+parser.add_argument('dataset', choices=['coco', 'voc'], help='dataset type')
 args = parser.parse_args()
 
 CLASSES = ('person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
@@ -27,12 +26,9 @@ CLASSES = ('person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
            'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock',
            'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush')
 
-
 voc_classes = ('aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car',
-       'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse', 'motorbike',
-       'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor')
-
-
+               'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse', 'motorbike',
+               'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor')
 
 def generate_active_learning_dataset(oracle_json, n_labeled_img, out_labeled_json, out_unlabeled_json, valid_classes):
     with open(oracle_json) as f:
@@ -41,30 +37,18 @@ def generate_active_learning_dataset(oracle_json, n_labeled_img, out_labeled_jso
     all_images = data['images']
     all_annotations = data['annotations']
 
-    class_id2name = dict()
-    class_name2id = dict()
-    for c in data['categories']:
-        class_id2name[c['id']] = c['name']
-        class_name2id[c['name']] = c['id']
+    class_id2name = {c['id']: c['name'] for c in data['categories']}
+    class_name2id = {c['name']: c['id'] for c in data['categories']}
 
     inds = np.random.permutation(len(all_images))
     labeled_inds = inds[:n_labeled_img].tolist()
     unlabeled_inds = inds[n_labeled_img:].tolist()
 
-    labeled_images = []
-    labeled_img_ids = []
-    labeled_annotations = []
+    labeled_images = [all_images[ind] for ind in labeled_inds]
+    labeled_img_ids = [img['id'] for img in labeled_images]
+    labeled_annotations = [ann for ann in all_annotations if (class_id2name[ann['category_id']] in valid_classes) and (ann['image_id'] in labeled_img_ids)]
 
-    for ind in labeled_inds:
-        labeled_images.append(all_images[ind])
-        labeled_img_ids.append(all_images[ind]['id'])
-    for ann in all_annotations:
-        if (class_id2name[ann['category_id']] in valid_classes) and (ann['image_id'] in labeled_img_ids):
-            labeled_annotations.append(ann)
-
-    unlabeled_images = []
-    for ind in unlabeled_inds:
-        unlabeled_images.append(all_images[ind])
+    unlabeled_images = [all_images[ind] for ind in unlabeled_inds]
 
     out_labeled_data = dict(
         categories=data['categories'],
@@ -84,31 +68,25 @@ def generate_active_learning_dataset(oracle_json, n_labeled_img, out_labeled_jso
 
     print('------------------------------------------------------')
     print('Labeled data:')
-    print('Output path: %s'%out_labeled_json)
-    print('Number of images: %d'%len(labeled_images))
-    print('Number of objects: %d'%len(labeled_annotations))
+    print('Output path: %s' % out_labeled_json)
+    print('Number of images: %d' % len(labeled_images))
+    print('Number of objects: %d' % len(labeled_annotations))
 
     print('Unlabeled data:')
     print('Output path: %s' % out_unlabeled_json)
     print('Number of images: %d' % len(unlabeled_images))
     print('------------------------------------------------------')
 
-
 if __name__ == '__main__':
-    if args.dataset == 'coco':
-        valid_classes = CLASSES
-    elif args.dataset == 'voc':
-        valid_classes = voc_classes
-    else:
-        raise NotImplementedError
+    valid_classes = CLASSES if args.dataset == 'coco' else voc_classes
 
     N = args.n_diff
     for i in range(N):
-        data_prefix = args.dataset + '_' + args.n_labeled
+        data_prefix = f"{args.dataset}_{args.n_labeled}"
         generate_active_learning_dataset(
             oracle_json=args.oracle_path,
             n_labeled_img=args.n_labeled,
-            out_labeled_json=os.path.join(args.out_root, data_prefix+'_labeled_%d.json'%(i+1)),
-            out_unlabeled_json=os.path.join(args.out_root, data_prefix+'_unlabeled_%d.json'%(i+1)),
+            out_labeled_json=os.path.join(args.out_root, f"{data_prefix}_labeled_{i + 1}.json"),
+            out_unlabeled_json=os.path.join(args.out_root, f"{data_prefix}_unlabeled_{i + 1}.json"),
             valid_classes=valid_classes
         )

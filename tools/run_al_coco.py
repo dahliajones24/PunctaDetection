@@ -23,6 +23,7 @@ sys_echo('>> Start COCO active learning')
 sys_echo('>> Working path: %s' % cfg.get('output_dir'))
 sys_echo('>> Config: %s' % args.config)
 sys_echo('\n')
+print(f"Output directory is set to: {cfg.get('output_dir')}")
 
 PYTHON = cfg.get('python_path', 'python')
 
@@ -48,9 +49,17 @@ diversity_sampler = builder_al_sampler(cfg.diversity_sampler_config)
 def run(round, run_al):
     last_round_work_dir                     = os.path.join(cfg.get('output_dir'), 'round%d'%(round-1))
     round_work_dir                          = os.path.join(cfg.get('output_dir'), 'round%d'%round)
+
+    print(f"Last round work dir: {last_round_work_dir}")
+    print(f"Current round work dir: {round_work_dir}")
+
     round_labeled_json                      = os.path.join(round_work_dir, 'annotations', 'labeled.json')
     round_unlabeled_json                    = os.path.join(round_work_dir, 'annotations', 'unlabeled.json')
     round_eval_log                          = os.path.join(round_work_dir, 'eval.txt')
+
+    print(f"Round labeled JSON: {round_labeled_json}")
+    print(f"Round unlabeled JSON: {round_unlabeled_json}")
+    print(f"Evaluation log path: {round_eval_log}")
 
     round_uncertainty_inference_json_prefix = os.path.join(round_work_dir, 'unlabeled_inference_result')
     round_uncertainty_inference_json        = os.path.join(round_work_dir, 'unlabeled_inference_result.bbox.json')

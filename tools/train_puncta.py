@@ -8,6 +8,7 @@ import time
 import warnings
 
 import mmcv
+import numpy as np
 import torch
 from mmcv import Config, DictAction
 from mmcv.runner import get_dist_info, init_dist
@@ -19,8 +20,13 @@ from mmdet.datasets import build_dataset
 from mmdet.models import build_detector
 from mmdet.utils import collect_env, get_root_logger
 
-from mmdet.ppal.datasets import *
+from mmdet.ppal.datasets.al_puncta import *
 from mmdet.ppal.models import *
+
+# Import your CustomSampler
+from mmdet.ppal.sampler import CustomSampler
+from torch.utils.data import DataLoader
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')
@@ -36,18 +42,6 @@ def parse_args():
         '--no-validate',
         action='store_true',
         help='whether not to evaluate the checkpoint during training')
-    group_gpus = parser.add_mutually_exclusive_group()
-    group_gpus.add_argument(
-        '--gpus',
-        type=int,
-        help='number of gpus to use '
-        '(only applicable to non-distributed training)')
-    group_gpus.add_argument(
-        '--gpu-ids',
-        type=int,
-        nargs='+',
-        help='ids of gpus to use '
-        '(only applicable to non-distributed training)')
     parser.add_argument('--seed', type=int, default=None, help='random seed')
     parser.add_argument(
         '--deterministic',
@@ -76,7 +70,13 @@ def parse_args():
         default='none',
         help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
+    
+    # Add gpu_ids argument
+    parser.add_argument('--gpus', type=int, help='number of gpus to use')
+    parser.add_argument('--gpu-ids', type=int, nargs='+', help='ids of gpus to use')
+    
     args = parser.parse_args()
+    
     if 'LOCAL_RANK' not in os.environ:
         os.environ['LOCAL_RANK'] = str(args.local_rank)
 
@@ -102,21 +102,22 @@ def main():
     if cfg.get('cudnn_benchmark', False):
         torch.backends.cudnn.benchmark = True
 
-    # Work_dir is determined in this priority: CLI > segment in file > filename
+    # Set work_dir
     if args.work_dir is not None:
         cfg.work_dir = args.work_dir
     elif cfg.get('work_dir', None) is None:
-        cfg.work_dir = osp.join('./work_dirs',
-                                osp.splitext(osp.basename(args.config))[0])
+        cfg.work_dir = osp.join('./work_dirs', osp.splitext(osp.basename(args.config))[0])
     if args.resume_from is not None:
         cfg.resume_from = args.resume_from
     cfg.auto_resume = args.auto_resume
-    if args.gpu_ids is not None:
+
+    # Check and handle gpu_ids
+    if hasattr(args, 'gpu_ids') and args.gpu_ids is not None:
         cfg.gpu_ids = args.gpu_ids
     else:
         cfg.gpu_ids = range(1) if args.gpus is None else range(args.gpus)
 
-    # Init distributed env first, since logger depends on the dist info.
+    # init distributed env first, since logger depends on the dist info.
     if args.launcher == 'none':
         distributed = False
         if len(cfg.gpu_ids) > 1:
@@ -128,80 +129,89 @@ def main():
     else:
         distributed = True
         init_dist(args.launcher, **cfg.dist_params)
-        # Re-set gpu_ids with distributed training mode
+        # re-set gpu_ids with distributed training mode
         _, world_size = get_dist_info()
         cfg.gpu_ids = range(world_size)
 
-    # Create work_dir
+    # create work_dir
     mmcv.mkdir_or_exist(osp.abspath(cfg.work_dir))
-    # Dump config
+    # dump config
     cfg.dump(osp.join(cfg.work_dir, osp.basename(args.config)))
-    # Init the logger before other steps
+    # init the logger before other steps
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
     log_file = osp.join(cfg.work_dir, f'{timestamp}.log')
     logger = get_root_logger(log_file=log_file, log_level=cfg.log_level)
 
-    # Init the meta dict to record some important information such as
+    # init the meta dict to record some important information such as
     # environment info and seed, which will be logged
     meta = dict()
-    # Log env info
+    # log env info
     env_info_dict = collect_env()
-    env_info = '\n'.join([(f'{k}: {v}') for k, v in env_info_dict.items()])
+    env_info = '\n' + '\n'.join([(f'{k}: {v}') for k, v in env_info_dict.items()]) + '\n'
     dash_line = '-' * 60 + '\n'
-    logger.info('Environment info:\n' + dash_line + env_info + '\n' +
-                dash_line)
+    logger.info('Environment info:\n' + dash_line + env_info + dash_line)
     meta['env_info'] = env_info
     meta['config'] = cfg.pretty_text
-    # Log some basic info
+    # log some basic info
     logger.info(f'Distributed training: {distributed}')
     logger.info(f'Config:\n{cfg.pretty_text}')
 
-    # Set random seeds
+    # set random seeds
     seed = init_random_seed(args.seed)
-    logger.info(f'Set random seed to {seed}, '
-                f'deterministic: {args.deterministic}')
+    logger.info(f'Set random seed to {seed}, deterministic: {args.deterministic}')
     set_random_seed(seed, deterministic=args.deterministic)
     cfg.seed = seed
     meta['seed'] = seed
     meta['exp_name'] = osp.basename(args.config)
 
-    # Build the detector model
+    # Build the model
     model = build_detector(
         cfg.model,
         train_cfg=cfg.get('train_cfg'),
         test_cfg=cfg.get('test_cfg'))
     model.init_weights()
 
-    # Build datasets using the custom train pipeline
+    # Build the dataset
     datasets = [build_dataset(cfg.data.train)]
-    
-    # If the workflow includes validation, ensure the validation pipeline matches
+
+    # Ensure the flag attribute is set properly for GroupSampler
+    if not hasattr(datasets[0], 'flag'):
+        datasets[0].flag = np.zeros(len(datasets[0]), dtype=np.uint8)
+
+    # Create the custom sampler and DataLoader
+    custom_sampler = CustomSampler(datasets[0], shuffle=True)
+    train_loader = DataLoader(
+        datasets[0],
+        batch_size=cfg.data.samples_per_gpu,
+        sampler=custom_sampler,
+        num_workers=cfg.data.workers_per_gpu,
+        collate_fn=lambda x: x
+    )
+
     if len(cfg.workflow) == 2:
         val_dataset = copy.deepcopy(cfg.data.val)
-        val_dataset.pipeline = cfg.data.train.pipeline  # Align validation pipeline with training
+        val_dataset.pipeline = cfg.data.train.pipeline
         datasets.append(build_dataset(val_dataset))
 
-    # Add meta information to the checkpoint
     if cfg.checkpoint_config is not None:
+        # Save mmdet version, config file content and class names in
+        # checkpoints as meta data
         cfg.checkpoint_config.meta = dict(
             mmdet_version=__version__ + get_git_hash()[:7],
             CLASSES=datasets[0].CLASSES)
-    
     # Add an attribute for visualization convenience
     model.CLASSES = datasets[0].CLASSES
-    
-    # Log the training pipeline for clarity
-    logger.info(f"Training Pipeline: {cfg.data.train.pipeline}")
 
     # Start training
     train_detector(
         model,
-        datasets,
+        [train_loader],  # Pass the DataLoader instead of the dataset
         cfg,
         distributed=distributed,
         validate=(not args.no_validate),
         timestamp=timestamp,
-        meta=meta)
+        meta=meta
+    )
 
 
 if __name__ == '__main__':
