@@ -36,7 +36,7 @@ class RetinaQualityEMAHead(RetinaHead):
                          name='retina_cls',
                          std=0.01,
                          bias_prob=0.01)),
-                 base_momentum=0.999,
+                 base_momentum=0.9,
                  quality_xi=0.6,
                  **kwargs):
         self.stacked_convs = stacked_convs

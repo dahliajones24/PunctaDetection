@@ -11,8 +11,6 @@ from mmdet.models.builder import HEADS
 from mmdet.models.dense_heads.retina_head import RetinaHead
 
 
-
-
 @HEADS.register_module()
 class RetinaHeadUncertainty(RetinaHead):
     def __init__(self, **kwargs):

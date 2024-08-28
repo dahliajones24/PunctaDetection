@@ -1,27 +1,15 @@
 import json
 import numpy as np
-
-from mmdet.ppal.utils.dataset_info import COCO_CLASSES, VOC_CLASSES
+from mmdet.ppal.utils.dataset_info import CLASSES
 from mmdet.ppal.utils.running_checks import sys_echo
-
 
 eps = 1e-10
 
 class BaseALSampler(object):
 
-    def __init__(
-        self,
-        n_sample_images,
-        oracle_annotation_path,
-        is_random,
-        dataset_type='coco',
-        **kwargs
-    ):
-
+    def __init__(self, n_sample_images, oracle_annotation_path, is_random, dataset_type='coco', **kwargs):
         if dataset_type == 'coco':
-            self.CLASSES = COCO_CLASSES
-        elif dataset_type == 'voc':
-            self.CLASSES = VOC_CLASSES
+            self.CLASSES = CLASSES
         else:
             raise NotImplementedError
         self.dataset_type = dataset_type
@@ -61,7 +49,7 @@ class BaseALSampler(object):
 
         self.oracle_cate_prob = self.cate_prob_stat(input_json=None)
 
-        self.round = 1 # the init round is the first round
+        self.round = 1  # the init round is the first round
 
         self.size_thr = 16
         self.ratio_thr = 5.
@@ -93,7 +81,7 @@ class BaseALSampler(object):
         return cate_probs
 
     def is_box_valid(self, box, img_size):
-        # clip box and filter out outliers
+        # Adjust thresholds for puncta images if needed
         img_w, img_h = img_size
         x1, y1, w, h = box
         if (x1 > img_w) or (y1 > img_h):
@@ -107,8 +95,8 @@ class BaseALSampler(object):
     def set_round(self, new_round):
         self.round = new_round
 
-    def al_acquisition(self, result_json):
-        pass
+    def al_acquisition(self, result_json, last_label_path):
+        pass  # To be implemented by child classes
 
     def create_jsons(self, sampled_img_ids, unsampled_img_ids, last_labeled_json, out_label_path, out_unlabeled_path):
         with open(last_labeled_json) as f:
@@ -150,16 +138,14 @@ class BaseALSampler(object):
 
         self.latest_labeled = last_label_path
 
-        sampled_img_ids, rest_img_ids = self.al_acquisition(result_path)
+        # Pass both result_path and last_label_path to al_acquisition
+        sampled_img_ids, rest_img_ids = self.al_acquisition(result_path, last_label_path)
         self.create_jsons(sampled_img_ids, rest_img_ids, last_label_path, out_label_path, out_unlabeled_path)
 
         sys_echo('>> Active learning acquisition complete!!!\n\n')
 
-    def log_info(self, result_path,  out_label_path, out_unlabeled_path):
+    def log_info(self, result_path, out_label_path, out_unlabeled_path):
         pass
 
     def log_init_info(self):
         pass
-
-
-

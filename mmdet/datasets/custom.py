@@ -121,7 +121,7 @@ class CustomDataset(Dataset):
             if self.proposals is not None:
                 self.proposals = [self.proposals[i] for i in valid_inds]
             # set group flag for the sampler
-            self._set_group_flag()
+            # self._set_group_flag()
 
         # processing pipeline
         self.pipeline = Compose(pipeline)
@@ -182,17 +182,17 @@ class CustomDataset(Dataset):
                 valid_inds.append(i)
         return valid_inds
 
-    def _set_group_flag(self):
-        """Set flag according to image aspect ratio.
+    # def _set_group_flag(self):
+    #     """Set flag according to image aspect ratio.
 
-        Images with aspect ratio greater than 1 will be set as group 1,
-        otherwise group 0.
-        """
-        self.flag = np.zeros(len(self), dtype=np.uint8)
-        for i in range(len(self)):
-            img_info = self.data_infos[i]
-            if img_info['width'] / img_info['height'] > 1:
-                self.flag[i] = 1
+    #     Images with aspect ratio greater than 1 will be set as group 1,
+    #     otherwise group 0.
+    #     """
+    #     self.flag = np.zeros(len(self), dtype=np.uint8)
+    #     for i in range(len(self)):
+    #         img_info = self.data_infos[i]
+    #         if img_info['width'] / img_info['height'] > 1:
+    #             self.flag[i] = 1
 
     def _rand_another(self, idx):
         """Get another random index from the same group as the given index."""

@@ -135,35 +135,29 @@ def get_img_score_distance_matrix_slow(
             raise NotImplementedError
             return None
 
-
 @torch.no_grad()
 def concat_all_gather(tensor):
-    """
-    Reference: MoCo v2
-    """
-    tensors_gather = [
-        torch.ones_like(tensor)
-        for _ in range(torch.distributed.get_world_size())
-    ]
-    torch.distributed.all_gather(tensors_gather, tensor, async_op=False)
-
-    output = torch.cat(tensors_gather, dim=0)
+    if torch.distributed.is_initialized():
+        tensors_gather = [
+            torch.ones_like(tensor)
+            for _ in range(torch.distributed.get_world_size())
+        ]
+        torch.distributed.all_gather(tensors_gather, tensor, async_op=False)
+        output = torch.cat(tensors_gather, dim=0)
+    else:
+        # If distributed training is not initialized, just return the input tensor.
+        output = tensor
     return output
 
 @torch.no_grad()
 def concat_all_sum(tensor):
-    """Performs all_gather operation on the provided tensors.
-    *** Warning ***: torch.distributed.all_gather has no gradient.
-    """
-    tensors_gather = [
-        torch.ones_like(tensor)
-        for _ in range(torch.distributed.get_world_size())
-    ]
-    torch.distributed.all_gather(tensors_gather, tensor, async_op=False)
-
-    output = torch.stack(tensors_gather, dim=-1).sum(dim=-1)
+    if torch.distributed.is_available() and torch.distributed.is_initialized():
+        tensors_gather = [torch.ones_like(tensor) for _ in range(torch.distributed.get_world_size())]
+        torch.distributed.all_gather(tensors_gather, tensor, async_op=False)
+        output = sum(tensors_gather)
+    else:
+        output = tensor
     return output
-
 
 def get_inter_feats(lvl_feats, lvl_inds, boxes, img_shape):
 

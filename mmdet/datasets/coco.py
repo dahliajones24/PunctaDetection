@@ -67,14 +67,16 @@ class CocoDataset(CustomDataset):
 
     def get_ann_info(self, idx):
         """Get COCO annotation by index.
-
+        
         Args:
             idx (int): Index of data.
 
         Returns:
             dict: Annotation info of specified index.
         """
-
+        if idx >= len(self.data_infos) or idx < 0:
+            raise IndexError(f"Index {idx} is out of range for dataset with {len(self.data_infos)} images.")
+        
         img_id = self.data_infos[idx]['id']
         ann_ids = self.coco.get_ann_ids(img_ids=[img_id])
         ann_info = self.coco.load_anns(ann_ids)

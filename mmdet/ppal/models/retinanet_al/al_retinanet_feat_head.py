@@ -24,6 +24,8 @@ class RetinaHeadFeat(RetinaHead):
         self.total_images = total_images
         self.queue_length = total_images
         self.current_images = 0
+
+        # Adjust max_det if necessary to accommodate more detections due to refined anchor settings
         self.max_det = max_det
         self.feat_dim = feat_dim
         self.output_path = output_path
@@ -369,16 +371,33 @@ class RetinaHeadFeat(RetinaHead):
                 else:
                     torch.cuda.synchronize()
 
-
             return det_bboxes, det_labels, cls_uncertainties, box_uncertainties
         else:
             raise NotImplementedError
 
     def collect_det_info(self, img_meta, det_labels, det_scores, det_feats):
-        rank, world_size = get_dist_info()
+        if torch.distributed.is_initialized():
+            rank, world_size = get_dist_info()
+        else:
+            world_size = 1  # Since we're not using distributed training
 
         img_id = int(os.path.split(img_meta['filename'])[-1].split('.')[0])
         img_id = torch.tensor([[img_id]], dtype=torch.int, device=self.image_id_queue.device)
+
+    # Debugging: Print tensor shapes before reshaping
+        print(f"Debug: det_labels shape before reshaping: {det_labels.shape}")
+        print(f"Debug: det_scores shape before reshaping: {det_scores.shape}")
+        print(f"Debug: det_feats shape before reshaping: {det_feats.shape}")
+
+    # Ensure that det_labels has enough elements to be reshaped to (1, self.max_det)
+        num_detections = det_labels.shape[0]
+    
+    # If fewer detections than max_det, pad the tensor
+        if num_detections < self.max_det:
+            padding_size = self.max_det - num_detections
+            det_labels = torch.cat([det_labels, det_labels.new_full((padding_size,), -1)])
+            det_scores = torch.cat([det_scores, det_scores.new_full((padding_size,), 0)])
+            det_feats = torch.cat([det_feats, det_feats.new_full((padding_size, self.feat_dim), 0)], dim=0)
 
         collected_img_ids = concat_all_gather(img_id.reshape(1, 1))
         self.image_id_queue[self.current_images:(self.current_images + world_size)] = collected_img_ids
@@ -392,23 +411,53 @@ class RetinaHeadFeat(RetinaHead):
         return
 
     def compute_al(self):
-        valid_inds = (self.image_id_queue >= 0).reshape(-1)
-        image_id_queue = self.image_id_queue[valid_inds]
+        try:
+            # Filter out invalid indices (those with image_id_queue < 0)
+            valid_inds = (self.image_id_queue >= 0).reshape(-1)
+            image_id_queue = self.image_id_queue[valid_inds]
 
-        det_label_queue = self.det_label_queue[valid_inds]
-        det_score_queue = self.det_score_queue[valid_inds]
-        det_feat_queue = self.det_feat_queue[valid_inds]
+            det_label_queue = self.det_label_queue[valid_inds]
+            det_score_queue = self.det_score_queue[valid_inds]
+            det_feat_queue = self.det_feat_queue[valid_inds]
 
-        img_dis_mat = get_img_score_distance_matrix_slow(
-            det_label_queue, det_score_queue, det_feat_queue, score_thr=0.05)
+            print("Debug: Starting computation of image distance matrix.")
+            print(f"Debug: Valid indices count: {valid_inds.sum()}")
+            print(f"Debug: Image ID queue shape: {image_id_queue.shape}")
+            print(f"Debug: Detected label queue shape: {det_label_queue.shape}")
+            print(f"Debug: Detected score queue shape: {det_score_queue.shape}")
+            print(f"Debug: Detected feature queue shape: {det_feat_queue.shape}")
 
-        img_dis_mat = img_dis_mat.detach().cpu().numpy()
-        img_ids = image_id_queue.detach().cpu().numpy()
+            # Compute the image distance matrix using the provided method
+            img_dis_mat = get_img_score_distance_matrix_slow(
+                det_label_queue, det_score_queue, det_feat_queue, score_thr=0.03)  # Changed for puncta
 
-        with open(self.output_path, 'wb') as fwb:
-            np.save(fwb, img_dis_mat)
-            np.save(fwb, img_ids)
+            print("Debug: Image distance matrix computed successfully.")
+
+            # Convert tensors to numpy arrays for saving
+            img_dis_mat = img_dis_mat.detach().cpu().numpy()
+            img_ids = image_id_queue.detach().cpu().numpy()
+
+            # Print debug information about the matrices
+            print(f"Debug: img_dis_mat shape: {img_dis_mat.shape}, dtype: {img_dis_mat.dtype}")
+            print(f"Debug: img_ids shape: {img_ids.shape}, dtype: {img_ids.dtype}")
+
+            # Ensure the output directory exists
+            output_dir = os.path.dirname(self.output_path)
+            if not os.path.exists(output_dir):
+                print(f"Debug: Creating output directory {output_dir}")
+                os.makedirs(output_dir, exist_ok=True)
+
+            # Save the image distance matrix and image IDs if rank == 0
+            rank, _ = get_dist_info()  # Ensure you get the rank for distributed processing
+            if rank == 0:
+                print(f"Debug: Saving image distance matrix to {self.output_path}")
+                try:
+                    with open(self.output_path, 'wb') as fwb:
+                        np.save(fwb, img_dis_mat)
+                        np.save(fwb, img_ids)
+                    print("Debug: Image distance matrix saved successfully.")
+                except Exception as e:
+                    print(f"Error: Failed to save image distance matrix. {str(e)}")
+        except Exception as e:
+            print(f"Error: compute_al encountered an error: {str(e)}")
         return
-
-
-
