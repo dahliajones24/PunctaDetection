@@ -6,14 +6,14 @@ model = dict(
         type='RetinaHeadUncertainty',
     ),
     test_cfg=dict(
-        nms_pre=3000,
+        nms_pre=1000,
         min_bbox_size=0,
         score_thr=0.05,
-        nms=dict(type='nms', iou_threshold=0.6),
+        nms=dict(type='nms', iou_threshold=0.5),
         max_per_img=200)
 )
 data = dict(
-    test=dict(ann_file=None)
+    test=dict(ann_file='/home/djones/puncta_det/data_puncta/puncta/annotations/instances_train.json')
 )
-unlabeled_data = ''
+unlabeled_data = '/home/djones/puncta_det/data_puncta/active_learning/coco_600_unlabeled_1.json'
 

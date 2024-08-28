@@ -4,13 +4,13 @@ model = dict(
     type='ALRetinaNet',
     bbox_head=dict(
         type='RetinaHeadFeat',
-        total_images=0,  # placeholder
+        total_images=1811,  
         max_det=100,
         feat_dim=256,
-        output_path=''  # placeholder
+        output_path=''  
     ),
 )
 data = dict(
-    test=dict(ann_file=None)
+    test=dict(ann_file='/home/djones/puncta_det/data_puncta/puncta/annotations/instances_train.json')
 )
-unlabeled_data = ''
+unlabeled_data = '/home/djones/puncta_det/data_puncta/active_learning/coco_600_unlabeled_1.json'
