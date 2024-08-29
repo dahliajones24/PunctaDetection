@@ -1,9 +1,9 @@
-# Plug and Play Active Learning for Object Detection
+# Plug and Play Active Learning for Puncta Detection
 <p align="center">
 <img src="resources/intro_new.png" style="width:960px;"/>
 </p>
 
-PyTorch implementation of our paper: [Plug and Play Active Learning for Object Detection](https://arxiv.org/pdf/2211.11612.pdf)
+The implementation of our paper can be found: [Active learning for puncta image detection in fluorescence microscopy (Machine Learning for Biomedical image analysis](https://arxiv.org/pdf/2211.11612.pdf)
 
 ## Requirements
 
@@ -21,28 +21,17 @@ python setup.py install
 ```
 PPAL
 |
-`-- data
+`-- data_puncta
     |
-    |--coco
-    |   |
-    |   |--train2017
-    |   |--val2017
-    |   `--annotations
-    |      |
-    |      |--instances_train2017.json
-    |      `--instances_val2017.json
-    `-- VOCdevkit
+    |--puncta
         |
-        |--VOC2007
-        |  |
-        |  |--ImageSets
-        |  |--JPEGImages
-        |  `--Annotations
-        `--VOC2012
-           |--ImageSets
-           |--JPEGImages
-           `--Annotations
-```
+        |--train
+        |--val
+        `--annotations
+           |
+           |--instances_train.json
+            `--instances_val.json
+``` 
 - For convenience, we use COCO style annotation for Pascal VOC active learning. Please download [trainval_0712.json](https://drive.google.com/file/d/1GIAmjGbg47dZFJjGYf2p-dU1z4V7pACQ/view?usp=sharing).
 - Set up active learning datasets
 ```shell
