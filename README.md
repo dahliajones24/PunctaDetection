@@ -3,7 +3,7 @@
 <img src="resources/intro_new.png" style="width:960px;"/>
 </p>
 
-The implementation of our paper can be found: [Active learning for puncta image detection in fluorescence microscopy (Machine Learning for Biomedical image analysis](https://arxiv.org/pdf/2211.11612.pdf)
+The implementation of our paper can be found: [Active learning for puncta image detection in fluorescence microscopy (Machine Learning for Biomedical image analysis)](https://drive.google.com/file/d/1vUcAgI9RkuAwd6G2S9RmiFT8DdVqxAaz/view?usp=drive_link)
 
 ## Requirements
 
@@ -32,77 +32,63 @@ PPAL
            |--instances_train.json
             `--instances_val.json
 ``` 
-- For convenience, we use COCO style annotation for Pascal VOC active learning. Please download [trainval_0712.json](https://drive.google.com/file/d/1GIAmjGbg47dZFJjGYf2p-dU1z4V7pACQ/view?usp=sharing).
+- Install datasets into data_puncta/data_setup.
+- Please download [groundtruth]([https://drive.google.com/file/d/1GIAmjGbg47dZFJjGYf2p-dU1z4V7pACQ/view?usp=sharing](https://drive.google.com/drive/folders/17i6LFeFjIkh8lkjx2L14xXGF_YzKojgh?usp=drive_link)).
+- Please download [rgb_images](https://drive.google.com/drive/folders/1dj2ClENCNLw1tTh_XigfcgBpmJx0dQm5?usp=drive_link).
+
+- - Set up active learning datasets
+```shell
+python data_processor.py
+```
+
+- - Set up active learning datasets
+```shell
+python instances_creation.py
+```
+  
 - Set up active learning datasets
 ```shell
-zsh tools/al_data/data_setup.sh /path/to/trainval_0712.json
+python al_setup.py 
 ```
-- The above command will set up a new Pascal VOC data folder. It will also generate three different active learning initial annotations for both dataset, where the COCO initial sets contain 2% of the original annotated images, and the Pascal VOC initial sets contains 5% of the original annotated images. 
+
+- The above commands will set up the Puncta Datasets. The commands will also generate three different active learning initial annotations , where the COCO initial sets contain 2% of the original annotated images, and the Pascal VOC initial sets contains 5% of the original annotated images. 
 - The resulted file structure is as following
 ```
 PPAL
 |
-`-- data
+`-- data_puncta
     |
-    |--coco
+    |--puncta
     |   |
-    |   |--train2017
-    |   |--val2017
+    |   |--train
+    |   |--val
     |   `--annotations
     |      |
-    |      |--instances_train2017.json
-    |      `--instances_val2017.json
-    |--VOCdevkit
+    |      |--instances_train.json
+    |      `--instances_val.json
+    |--data_setup
     |   |
-    |   |--VOC2007
-    |   |  |
-    |   |  |--ImageSets
-    |   |  |--JPEGImages
-    |   |  `--Annotations
-    |   `--VOC2012
-    |      |--ImageSets
-    |      |--JPEGImages
-    |      `--Annotations
-    |--VOC0712
-    |  |
-    |  |--images
-    |  |--annotations
-    |     |
-    |     `--trainval_0712.json
+    |   |--rgb_images
+    |   |--groundtruth
+    |   |--al_setup.py
+    |   |--puncta_data_processor.py
+    |   |--instances_creation.py
+    |
     `--active_learning
-       |
-       |--coco
-       |  |
-       |  |--coco_2365_labeled_1.json
-       |  |--coco_2365_unlabeled_1.json
-       |  |--coco_2365_labeled_2.json
-       |  |--coco_2365_unlabeled_2.json
-       |  |--coco_2365_labeled_3.json
-       |  `--coco_2365_unlabeled_3.json
-       `--voc
-          |
-          |--voc_827_labeled_1.json
-          |--voc_827_unlabeled_1.json
-          |--voc_827_labeled_2.json
-          |--voc_827_unlabeled_2.json
-          |--voc_827_labeled_3.json
-          `--voc_827_unlabeled_3.json
+        |--puncta_600_labeled_1.json
+        |--puncta_600_unlabeled_1.json
+        |--puncta_600_labeled_2.json
+        |--puncta_600_unlabeled_2.json
+        |--puncta_600_labeled_3.json
+        |--puncta_600_unlabeled_3.json
+      
 ```
 - Please refer to [data_setup.sh](https://github.com/ChenhongyiYang/PPAL/blob/main/tools/al_data/data_setup.sh) and [create_al_dataset.py](https://github.com/ChenhongyiYang/PPAL/blob/main/tools/al_data/create_al_dataset.py) to generate you own active learning annotation.
 ### Run active learning
 - You can run active learning using a single command with a config file. For example, you can run COCO and Pascal VOC RetinaNet experiments by
 ```shell
-python tools/run_al_coco.py --config al_configs/coco/ppal_retinanet_coco.py --model retinanet
-python tools/run_al_voc.py --config al_configs/voc/ppal_retinanet_voc.py --model retinanet
+python tools/run_al_coco.py --config al_configs/puncta/ppal_retinanet_puncta.py --model retinanet
 ```
 - Please check the config file to set up the data paths and environment settings before running the experiments.
-## Citation
 
-```
-@InProceedings{yang2024ppal,
-    author    = {{Yang, Chenhongyi and Huang, Zehao and Wang, Naiyan}},
-    title     = {{Plug and Play Active Learning for Object Detection}},
-    booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
-    year      = {2024}
-}
 ```
