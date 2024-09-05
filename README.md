@@ -90,5 +90,3 @@ PPAL
 python tools/run_al_coco.py --config al_configs/puncta/ppal_retinanet_puncta.py --model retinanet
 ```
 - Please check the config file to set up the data paths and environment settings before running the experiments.
-
-```
