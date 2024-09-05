@@ -7,7 +7,7 @@ The implementation of our paper can be found: [Active learning for puncta image 
 
 ## Requirements
 
-- Our codebase is built on top of [MMDetection](https://github.com/open-mmlab/mmdetection), which can be installed following the offcial instuctions.
+- The codebase is built on top of [MMDetection](https://github.com/open-mmlab/mmdetection), which can be installed following the offcial instuctions.
 
 ## Usage
 
