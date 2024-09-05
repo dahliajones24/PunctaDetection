@@ -85,7 +85,7 @@ PPAL
 ```
 - Please refer to [data_setup.sh](https://github.com/ChenhongyiYang/PPAL/blob/main/tools/al_data/data_setup.sh) and [create_al_dataset.py](https://github.com/ChenhongyiYang/PPAL/blob/main/tools/al_data/create_al_dataset.py) to generate you own active learning annotation.
 ### Run active learning
-- You can run active learning using a single command with a config file. For example, you can run COCO and Pascal VOC RetinaNet experiments by
+- You can run active learning using a single command with a config file. For example, you can run puncta experiments by
 ```shell
 python tools/run_al_coco.py --config al_configs/puncta/ppal_retinanet_puncta.py --model retinanet
 ```
